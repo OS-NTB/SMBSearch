@@ -20,21 +20,18 @@ Scan a target as anonymous
 python3 smb_search.py -i 192.168.179.136
 ```
 ```
-[Sun Oct  8 21:17:47 2023] Scanning \\192.168.179.136\ADMIN$
-[Sun Oct  8 21:17:47 2023] No access to \\192.168.179.136\ADMIN$
-[Sun Oct  8 21:17:47 2023] Scan completed.
-[Sun Oct  8 21:17:47 2023] Scanning \\192.168.179.136\C$
-[Sun Oct  8 21:17:47 2023] No access to \\192.168.179.136\C$
-[Sun Oct  8 21:17:47 2023] Scan completed.
-[Sun Oct  8 21:17:47 2023] Scanning \\192.168.179.136\IPC$
-[Sun Oct  8 21:17:47 2023] No access to \\192.168.179.136\IPC$
-[Sun Oct  8 21:17:47 2023] Scan completed.
-[Sun Oct  8 21:17:47 2023] Scanning \\192.168.179.136\Share
-[Sun Oct  8 21:17:47 2023] Found suspicious Password Document: \\192.168.179.136\Share\password.txt
-[Sun Oct  8 21:17:47 2023] Found suspicious Text File: \\192.168.179.136\Share\password.txt
-[Sun Oct  8 21:17:47 2023] Found suspicious Putty Format SSH Key: \\192.168.179.136\Share\putty.ppk
-[Sun Oct  8 21:17:47 2023] Found suspicious Text File: \\192.168.179.136\Share\twilio.txt
-[Sun Oct  8 21:17:47 2023] Found possible password in \\192.168.179.136\Share\password.txt: ('password', 'ILikeBeans123@')
-[Sun Oct  8 21:17:47 2023] Found possible Twilio API Key in \\192.168.179.136\Share\twilio.txt: SKFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-[Sun Oct  8 21:17:47 2023] Scan completed.
+[Mon Oct  9 12:45:01 2023] Scanning \\192.168.179.136\ADMIN$
+[Mon Oct  9 12:45:01 2023] No access to \\192.168.179.136\ADMIN$
+[Mon Oct  9 12:45:01 2023] Scanning \\192.168.179.136\C$
+[Mon Oct  9 12:45:01 2023] No access to \\192.168.179.136\C$
+[Mon Oct  9 12:45:01 2023] Scanning \\192.168.179.136\IPC$
+[Mon Oct  9 12:45:01 2023] No access to \\192.168.179.136\IPC$
+[Mon Oct  9 12:45:01 2023] Scanning \\192.168.179.136\Share
+[Mon Oct  9 12:45:01 2023] Found suspicious Password Document: \\192.168.179.136\Share\password.txt
+[Mon Oct  9 12:45:01 2023] Found suspicious Text File: \\192.168.179.136\Share\password.txt
+[Mon Oct  9 12:45:01 2023] Found suspicious Putty Format SSH Key: \\192.168.179.136\Share\putty.ppk
+[Mon Oct  9 12:45:01 2023] Found suspicious Text File: \\192.168.179.136\Share\twilio.txt
+[Mon Oct  9 12:45:01 2023] Found possible password in \\192.168.179.136\Share\password.txt: ('password', 'ILikeBeans123@')
+[Mon Oct  9 12:45:01 2023] Found possible Twilio API Key in \\192.168.179.136\Share\twilio.txt: SKFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+[Mon Oct  9 12:45:01 2023] Scan completed.
 ```
