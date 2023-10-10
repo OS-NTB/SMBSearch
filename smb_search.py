@@ -88,6 +88,7 @@ class SmbSearch:
         }   
 
     def scan_shares(self):
+        print(f'[{self.time.strftime("%c")}] Trying to connect to {self.server}')
         try:
             self.conn.connect(self.server, self.port)
             shares = self.conn.listShares()
@@ -97,10 +98,9 @@ class SmbSearch:
                 print(f'[{self.time.strftime("%c")}] Scanning \\\{self.server}\{share_name}')
                 self.find_suspicious(self.conn, share_name, self.server)
                 self.search_files(self.conn, share_name, self.server)
-            print(f'[{self.time.strftime("%c")}] Scan completed.')
             self.conn.close()
         except Exception as e:
-            print(f'Error: {e}')
+            print(f'[{self.time.strftime("%c")}] Cannot connect to {self.server}')
 
     
     def search_files(self, conn, share_name, server, remote_path = "/", local_path =""):
@@ -155,10 +155,27 @@ def main(argv):
     parser.add_option('-u', '--username', help="Username that will be used for authentication. Leave blank for anonymous authentication", default="", dest="username")
     parser.add_option('-p', '--password', help="Password that will be used for authentication. Leave Blank for anonymous authentication.", default="", dest="password")
     parser.add_option('-i', '--ip', help="Target IP address", dest="ip")
+    parser.add_option('-l', '--list', help="List of IP Addresses", default="", dest="list")
+    parser.add_option('-d', '--domain', help="Domain name", dest="domain", default="")
     (options, args) = parser.parse_args()
 
-    smb = SmbSearch(options.ip, options.username, options.password)
-    smb.scan_shares()
+    if options.list != "":
+        with open(options.list, 'r') as file:
+            lines = file.readlines()
+            for entry in lines:
+                entry = entry.strip()
+                if options.domain != "":
+                    username = f'{options.username}@{options.domain}'
+                    smb = SmbSearch(entry, username, options.password)
+                    smb.scan_shares()
+                else:
+                    smb = SmbSearch(entry, options.username, options.password)
+                    smb.scan_shares()
+    else:
+        smb = SmbSearch(options.ip, options.username, options.password)
+        smb.scan_shares()
+    
+    print(f'[{smb.time.strftime("%c")}] Scan completed.')
 
 if __name__ == "__main__":
     main(sys.argv[1:])
