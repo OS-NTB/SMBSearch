@@ -6,12 +6,32 @@ import sys
 import datetime
 from optparse import OptionParser
 
-class SmbSearch:
-    def __init__(self, server, username, password):
+class SMBSearch:
+    def __init__(self, server, username, password, domain=''):
         self.server = server
         self.port = 445
-        self.conn = SMBConnection(username, password, "name", server, use_ntlm_v2=True, sign_options=SMBConnection.SIGN_WHEN_SUPPORTED, is_direct_tcp=True)
         self.time = datetime.datetime.now()
+        self.conn = SMBConnection(username, password, "name", server, domain, use_ntlm_v2=True, sign_options=SMBConnection.SIGN_WHEN_SUPPORTED, is_direct_tcp=True)
+        self.suspicious_filetypes = {
+            "Password Document":"^.*(password|passwords).*\.(txt|rtf|docx|xlsx|pdf|xls|doc)$",
+            "Keepass Database": "^.*\.(kbdx|kbd)$",
+            "Configuration File": "^.*\.(config|conf|cfg|ini)$",
+            "Database": "^.*\.(sqlite|db3|db)$",
+            "Archive": "^.*\.(zip|rar|7z|tar|gz)$",
+            "Script":"^.*\.(pl|py|rb|sh|bat|ps1)$",
+            "Document":"^.*\.(docx|doc|rtf|pdf)$",
+            "Log File":"^.*\.log$",
+            "Spreadsheet":"^.*\.(xlsx|xls)$",
+            "Backup":"^.*\.bak$",
+            "CSV File":"^.*\.csv$",
+            "Text File":"^.*\.txt$",
+            "Putty Format SSH Key":"^.*\.ppk$",
+            "Private Key":"^.*\.pem$",
+            "Certificate":"^.*\.(pfx|cer|der)",
+            "Apache Configuration File":"^.*\.htaccess$",
+            "Apache Basic Authentication File":"^.*\.htpasswd$",
+            "WordPress Configuration File":"^.*wp-config.*$"
+        }
         self.credentials = {
             "Cloudinary"  : "cloudinary://.*",
             "Firebase URL": ".*firebaseio\.com",
@@ -31,7 +51,7 @@ class SmbSearch:
             "Generic Secret": "[s|S][e|E][c|C][r|R][e|E][t|T].*['|\"][0-9a-zA-Z]{32,45}['|\"]",
             "Google API Key": "AIza[0-9A-Za-z\\-_]{35}",
             "Google Cloud Platform API Key": "AIza[0-9A-Za-z\\-_]{35}",
-            "Google Cloud Platform OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
+            "Google Cloud Platform OAuth": '[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com',
             "Google Drive API Key": "AIza[0-9A-Za-z\\-_]{35}",
             "Google Drive OAuth": "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com",
             "Google (GCP) Service-account": "\"type\": \"service_account\"",
@@ -54,101 +74,81 @@ class SmbSearch:
             "Twilio API Key": "SK[0-9a-fA-F]{32}",
             "Twitter Access Token": "[t|T][w|W][i|I][t|T][t|T][e|E][r|R].*[1-9][0-9]+-[0-9a-zA-Z]{40}",
             "Twitter OAuth": "[t|T][w|W][i|I][t|T][t|T][e|E][r|R].*['|\"][0-9a-zA-Z]{35,44}['|\"]",
-            "password": "(password|passwd|pass|pwd):(\S+)",
-            "password":"(password|passwd|pass|pwd)=(\S+)",
-            "MD5 Key":"/^[a-f0-9]{32}$/i"
         }
-        self.suspicious = {
-            "Password Document":"^.*(password|passwords).*\.(txt|rtf|docx|xlsx|pdf|xls|doc)$",
-            "Keepass Database": "^.*\.(kbdx|kbd)$",
-            "Configuration File": "^.*\.(config|conf|cfg|ini)$",
-            "Database": "^.*\.(sqlite|db3|db)$",
-            "Archive": "^.*\.(zip|rar|7z|tar|gz)$",
-            "Script":"^.*\.(pl|py|rb|sh|bat|ps1)$",
-            "Document":"^.*\.(docx|doc|rtf|pdf)$",
-            "Log File":"^.*\.log$",
-            "Spreadsheet":"^.*\.(xlsx|xls)$",
-            "Backup":"^.*\.bak$",
-            "CSV File":"^.*\.csv$",
-            "Text File":"^.*\.txt$",
-            "Putty Format SSH Key":"^.*\.ppk$",
-            "Private Key":"^.*\.pem$",
-            "Certificate":"^.*\.(pfx|cer|der)",
-            "Apache Configuration File":"^.*\.htaccess$",
-            "Apache Basic Authentication File":"^.*\.htpasswd$",
-            "WordPress Configuration File":"^.*wp-config.*$"
-        }
-        self.search_through = {
+        self.searchable_filetypes = {
             "Text File":"^.*\.txt$",
             "Log File":"^.*\.log$",
             "Configuration File": "^.*\.(config|conf|cfg|ini)$",
             "Script":"^.*\.(pl|py|rb|sh|bat|ps1)$",
             "Apache Configuration File":"^.*\.htaccess$",
             "Apache Basic Authentication File":"^.*\.htpasswd$"
-        }   
+        }  
 
-    def scan_shares(self):
-        print(f'[{self.time.strftime("%c")}] Trying to connect to {self.server}')
+    def scan(self):
+        print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Trying to connect to {self.server}')
         try:
+            #Connect to server using SMB protocol
             self.conn.connect(self.server, self.port)
+            
+            #List shares
             shares = self.conn.listShares()
 
+            #For loop that finds suspicious files in each share
             for share in shares:
                 share_name = share.name
-                print(f'[{self.time.strftime("%c")}] Scanning \\\{self.server}\{share_name}')
-                self.find_suspicious(self.conn, share_name, self.server)
-                self.search_files(self.conn, share_name, self.server)
-            self.conn.close()
-        except Exception as e:
-            print(f'[{self.time.strftime("%c")}] Cannot connect to {self.server}')
+                print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Scanning \\\{self.server}\{share_name}')
+                self.locate_suspicious(self.conn, share_name, self.server) 
+                self.cred_hunt(self.conn, share_name, self.server) 
 
+            #Close the connection
+            self.conn.close()  
+
+        except Exception:
+            print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Cannot connect to {self.server}')
     
-    def search_files(self, conn, share_name, server, remote_path = "/", local_path =""):
+    def locate_suspicious(self, connection, share_name, server, remote_path="/", local_path=""):        
         try:
-            contents = conn.listPath(share_name, remote_path)
-            for entry in contents:
-                remote_file  = os.path.join(remote_path, entry.filename)
+            directory_contents = connection.listPath(share_name, remote_path)
+            for entry in directory_contents:
+                remote_file = os.path.join(remote_path, entry.filename)
                 local_file = os.path.join(local_path, entry.filename)
 
-                if not entry.isDirectory:
-                    for key, value in self.search_through.items():
+                if not entry.isDirectory:                                   
+                    for key,value in self.suspicious_filetypes.items():
                         if re.match(value, entry.filename):
-                            with tempfile.NamedTemporaryFile() as file:
-                                filepath = remote_file.replace("/","\\")
-                                conn.retrieveFile(share_name, remote_file, file)
-                                file.seek(0)
-                                content = file.read().decode('utf-8', 'ignore').translate({ord('\u0000'): None})
-                                self.find_creds(content, remote_file, share_name, server)
-                elif entry.filename not in ['.', '..']:
-                    self.search_files(conn, share_name, server, remote_file, local_file)
-
+                            filepath = remote_file.replace('/','\\')
+                            print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Found suspicious {key}: \\\{server}\{share_name}{filepath}')
+                elif entry.filename not in ['.','..']:
+                    self.locate_suspicious(connection, share_name, server, remote_file, local_file)
         except:
-            print("",end="")
-    
-    def find_suspicious(self,conn,share_name, server, remote_path="/", local_path=""):
-        try:
-            contents = conn.listPath(share_name, remote_path)
-            for entry in contents:
-                remote_file  = os.path.join(remote_path, entry.filename)
-                local_file = os.path.join(local_path, entry.filename)
+            print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] No access to \\\{server}\{share_name}')
 
-                if not entry.isDirectory:
-                    for key,value in self.suspicious.items():
-                        if re.match(value, entry.filename):
+    def cred_hunt(self, connection, share_name, server, remote_path = "/", local_path=""):
+        try:
+            directory_contents = connection.listPath(share_name, remote_path)
+            for entry in directory_contents:
+                remote_file = os.path.join(remote_path, entry.filename)
+                local_file = os.path.join(local_path, entry.filename)
+            
+            if not entry.isDirectory:
+                for key,value in self.searchable_filetypes.items():
+                    if re.match(value, entry.filename):
+                        with tempfile.NamedTemporaryFile() as file:
                             filepath = remote_file.replace("/","\\")
-                            print(f'[{self.time.strftime("%c")}] Found suspicious {key}: \\\{server}\{share_name}{filepath}')
-                elif entry.filename not in ['.', '..']:
-                    self.find_suspicious(conn, share_name, server, remote_file, local_file)
+                            connection.retrieveFile(share_name, remote_file, file)
+                            file.seek(0)
+                            content = file.read().decode('utf-8', 'ignore').translate({ord('\u0000'): None})
+
+                            for key,value in self.credentials.items():
+                                if re.findall(value, content):
+                                    found = re.findall(value,content)
+                                    filepath = remote_file.replace('/','\\')
+                                    print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Found possible {key} in \\\{server}\{share_name}{filepath}: {found[0]}')
+            elif entry.filename not in ['.','..']:
+                self.cred_hunt(connection, share_name, server, remote_file, local_file)
 
         except:
-            print(f'[{self.time.strftime("%c")}] No access to \\\{server}\{share_name}')
-
-    def find_creds(self, content:str, filename:str, share_name, server):
-        for key, value in self.credentials.items():
-            if re.findall(value, content):
-                found = re.findall(value,content)
-                filepath = filename.replace("/","\\")
-                print(f'[{self.time.strftime("%c")}] Found possible {key} in \\\{server}\{share_name}{filepath}: {found[0]}')
+            print('',end='')
 
 def main(argv):
     parser = OptionParser()
@@ -156,26 +156,29 @@ def main(argv):
     parser.add_option('-p', '--password', help="Password that will be used for authentication. Leave Blank for anonymous authentication.", default="", dest="password")
     parser.add_option('-i', '--ip', help="Target IP address", dest="ip")
     parser.add_option('-l', '--list', help="List of IP Addresses", default="", dest="list")
-    parser.add_option('-d', '--domain', help="Domain name", dest="domain", default="")
+    parser.add_option('-d', '--domain', help="Domain Name", dest="domain", default="")
     (options, args) = parser.parse_args()
 
-    if options.list != "":
+    if options.list != '':
         with open(options.list, 'r') as file:
             lines = file.readlines()
             for entry in lines:
                 entry = entry.strip()
-                if options.domain != "":
-                    username = f'{options.username}@{options.domain}'
-                    smb = SmbSearch(entry, username, options.password)
-                    smb.scan_shares()
+                if options.domain != '':
+                    smb = SMBSearch(entry, options.username, options.password, options.domain)
+                    smb.scan()
                 else:
-                    smb = SmbSearch(entry, options.username, options.password)
-                    smb.scan_shares()
+                    smb = SMBSearch(entry, options.username, options.password)
+                    smb.scan()
     else:
-        smb = SmbSearch(options.ip, options.username, options.password)
-        smb.scan_shares()
+        if options.domain != '':
+            smb = SMBSearch(options.ip, options.username, options.password, options.domain)
+            smb.scan()
+        else:
+            smb = SMBSearch(options.ip, options.username, options.password)
+            smb.scan()
     
-    print(f'[{smb.time.strftime("%c")}] Scan completed.')
+    print(f'[{smb.time.strftime("%m")}-{smb.time.strftime("%d")}-{smb.time.strftime("%Y")} {smb.time.strftime("%X")}] Scan completed.')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main(sys.argv[1:])
