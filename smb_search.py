@@ -1,6 +1,7 @@
 from smb.SMBConnection import SMBConnection
 import os
 import tempfile
+import pathlib
 import re
 import sys
 import datetime
@@ -84,7 +85,7 @@ class SMBSearch:
             "Apache Basic Authentication File":"^.*\.htpasswd$"
         }  
 
-    def scan(self):
+    def scan(self, download:bool):
         print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Trying to connect to {self.server}')
         try:
             #Connect to server using SMB protocol
@@ -98,7 +99,9 @@ class SMBSearch:
                 share_name = share.name
                 print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Scanning \\\{self.server}\{share_name}')
                 self.locate_suspicious(self.conn, share_name, self.server) 
-                self.cred_hunt(self.conn, share_name, self.server) 
+                self.cred_hunt(self.conn, share_name, self.server)
+                if download == True:
+                    self.download_files(self.conn, share_name, self.server)
 
             #Close the connection
             self.conn.close()  
@@ -130,25 +133,45 @@ class SMBSearch:
                 remote_file = os.path.join(remote_path, entry.filename)
                 local_file = os.path.join(local_path, entry.filename)
             
-            if not entry.isDirectory:
-                for key,value in self.searchable_filetypes.items():
-                    if re.match(value, entry.filename):
-                        with tempfile.NamedTemporaryFile() as file:
-                            filepath = remote_file.replace("/","\\")
-                            connection.retrieveFile(share_name, remote_file, file)
-                            file.seek(0)
-                            content = file.read().decode('utf-8', 'ignore').translate({ord('\u0000'): None})
-
-                            for key,value in self.credentials.items():
-                                if re.findall(value, content):
-                                    found = re.findall(value,content)
-                                    filepath = remote_file.replace('/','\\')
-                                    print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Found possible {key} in \\\{server}\{share_name}{filepath}: {found[0]}')
-            elif entry.filename not in ['.','..']:
-                self.cred_hunt(connection, share_name, server, remote_file, local_file)
+                if not entry.isDirectory:
+                    for value in self.searchable_filetypes.values():
+                        if re.match(value, entry.filename):
+                            with tempfile.NamedTemporaryFile() as file:
+                                connection.retrieveFile(share_name, remote_file, file)
+                                file.seek(0)
+                                content = file.read().decode('utf-8', 'ignore').translate({ord('\u0000'): None})
+                                
+                                for key, value in self.credentials.items():
+                                    if re.findall(value, content):
+                                        found = re.findall(value,content)
+                                        filepath = remote_file.replace('/','\\')
+                                        print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Found possible {key} in \\\{server}\{share_name}{filepath}: {found[0]}')
+                elif entry.filename not in ['.','..']:
+                    self.cred_hunt(connection, share_name, server, remote_file, local_file)
 
         except:
             print('',end='')
+
+    def download_files(self, connection, share_name, server, remote_path="/", local_path=""):
+        try:
+            directory_contents = connection.listPath(share_name, remote_path)
+            for entry in directory_contents:
+                remote_file = os.path.join(remote_path, entry.filename)
+                local_file = os.path.join(local_path, entry.filename)
+            
+                if not entry.isDirectory:
+                    for value in self.suspicious_filetypes.values():
+                        if re.match(value, entry.filename):
+                            pathlib.Path(local_path).mkdir(parents=True, exist_ok=True)
+                            filepath = remote_file.replace("/", "\\")
+                            with open(local_file, 'wb') as file:
+                                connection.retrieveFile(share_name, remote_file, file)
+                            print(f'[{self.time.strftime("%m")}-{self.time.strftime("%d")}-{self.time.strftime("%Y")} {self.time.strftime("%X")}] Downloaded: \\\{server}\{share_name}{filepath}')
+                elif entry.filename not in ['.', '..']:
+                    self.download_files(connection, remote_file, local_file, share_name)
+        except:
+            print('', end='')
+
 
 def main(argv):
     parser = OptionParser()
@@ -157,6 +180,7 @@ def main(argv):
     parser.add_option('-i', '--ip', help="Target IP address", dest="ip")
     parser.add_option('-l', '--list', help="List of IP Addresses", default="", dest="list")
     parser.add_option('-d', '--domain', help="Domain Name", dest="domain", default="")
+    parser.add_option('-g', '--get', help='Download suspicious files', dest="download", action="store_true", default=False)
     (options, args) = parser.parse_args()
 
     if options.list != '':
@@ -166,17 +190,17 @@ def main(argv):
                 entry = entry.strip()
                 if options.domain != '':
                     smb = SMBSearch(entry, options.username, options.password, options.domain)
-                    smb.scan()
+                    smb.scan(options.download)
                 else:
                     smb = SMBSearch(entry, options.username, options.password)
-                    smb.scan()
+                    smb.scan(options.download)
     else:
         if options.domain != '':
             smb = SMBSearch(options.ip, options.username, options.password, options.domain)
-            smb.scan()
+            smb.scan(options.download)
         else:
             smb = SMBSearch(options.ip, options.username, options.password)
-            smb.scan()
+            smb.scan(options.download)
     
     print(f'[{smb.time.strftime("%m")}-{smb.time.strftime("%d")}-{smb.time.strftime("%Y")} {smb.time.strftime("%X")}] Scan completed.')
 
