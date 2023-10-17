@@ -8,16 +8,17 @@ It is used to:
 - Identify files that contain hard-coded credentials (passwords, API Keys, etc.)
 
 ## Installation 
-1. Install Pysmb
+1. Clone or download the repo
+2. Install pysmb
 ```
 pip3 install pysmb
 ```
-2. Clone or download the Github Repo
+3. Enjoy :)
 
 ## Usage
-Scan a target as anonymous
+Scan a target as anonymous and download suspicious files
 ```
-python3 smb_search.py -i 192.168.179.136
+python3 smb_search.py -i 192.168.179.136 -g
 ```
 
 Scan a list of targets as a specified domain user
