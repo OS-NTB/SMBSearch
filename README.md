@@ -3,7 +3,7 @@
 SMBSearch is a tool to enumerate SMB shares.
 
 It is used to:
-- Scan a target
+- Scan a target or list of targets.
 - Enumerate accessible shares and files
 - Identify files that contain hard-coded credentials (passwords, API Keys, etc.)
 
