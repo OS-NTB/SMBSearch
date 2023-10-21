@@ -5,7 +5,8 @@ SMBSearch is a tool to enumerate SMB shares.
 It is used to:
 - Scan a target or list of targets.
 - Enumerate accessible shares and files
-- Identify files that contain hard-coded credentials (passwords, API Keys, etc.)
+- Identify files that contain hard-coded credentials (passwords, API Keys, etc
+**Note: This is a work-in-progress. Please let me know if you find any issues. Thank you :)**
 
 ## Installation 
 1. Clone or download the repo
@@ -25,7 +26,3 @@ Scan a list of targets as a specified domain user
 ```
 python3 smb_search.py -l ips.txt -u username -p password -d contoso.com
 ```
-
-
-
-Note: This is a work-in-progress. Please let me know if you find any issues. Thank you :)
