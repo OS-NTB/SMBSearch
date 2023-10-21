@@ -25,3 +25,5 @@ Scan a list of targets as a specified domain user
 ```
 python3 smb_search.py -l ips.txt -u username -p password -d contoso.com
 ```
+
+Note: This is a work-in-progress. Please let me know if you find any issues. Thank you :)
